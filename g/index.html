@@ -101,11 +101,13 @@ try {
       const paint = () => {
         const c = cars[i % cars.length];
         el.innerHTML = `<div class="sr-top"><span>${esc(owner)} Garage</span><span>${(i % cars.length) + 1} / ${cars.length} · Esc to exit</span></div>
-          <div class="sr-stage">${c.image ? `<img src="${esc(c.image)}" alt="">` : silhouette()}</div>
+          <div class="sr-stage">${c.image ? `<img src="${esc(c.image)}" alt="" onload="this.classList.add('in')">` : silhouette()}</div>
           <div><div class="sr-name">${esc(c.brand.name)} ${esc(c.model)}</div>
           <div class="sr-meta">${esc(years(c))}${c.production != null ? ` · ${fmt(c.production)} built` : ""}${c.engine ? ` · ${esc(c.engine)}` : ""}</div>
           ${c.hp ? `<div class="sr-hp">${fmt(c.hp)} hp</div>` : ""}</div>`;
         i++;
+        const next = cars[i % cars.length];
+        if (next.image) new Image().src = next.image;  // ready before its slide
       };
       const close = () => { clearInterval(timer); el.remove(); document.removeEventListener("keydown", onKey); document.exitFullscreen?.().catch(() => {}); };
       const onKey = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") paint(); };

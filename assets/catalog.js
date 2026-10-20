@@ -76,7 +76,9 @@ export function rarity(car) {
 
 export const fmt = (n) => (n == null ? "—" : n.toLocaleString("en-US"));
 export const years = (c) => (c.yearEnd == null ? `${c.yearStart}–` : c.yearEnd === c.yearStart ? `${c.yearStart}` : `${c.yearStart}–${c.yearEnd}`);
-export const money = (n) => (n == null ? "—" : n >= 1e6 ? `$${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : `$${Math.round(n / 1000)}k`);
+// One decimal at most, halves round up (same rule as Int.money in the app).
+const short = (x) => String(Math.round(x * 10) / 10);
+export const money = (n) => (n == null ? "—" : n >= 1e9 ? `$${short(n / 1e9)}B` : n >= 1e6 ? `$${short(n / 1e6)}M` : `$${Math.round(n / 1000)}k`);
 
 // Estimated value of one car in a given year, interpolated between known points.
 export function valueAt(car, year) {
