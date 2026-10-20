@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garage Head to Head</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><span class="viewonly">Head to head · view only</span><nav><a class="logo" href="../">garage/</a></nav></header>
+  <section class="hero"><h1 id="title">Loading…</h1></section>
+  <div id="body"></div>
+  <footer><span>Values are estimates of typical market value, not appraisals. Prices paid are never shown.</span><a href="../">Browse the full catalog</a></footer>
+</div>
+<script type="module">
+import { API } from "../assets/config.js";
+import { loadCatalog, fmt, money, esc, valueAt, cardHTML } from "../assets/catalog.js";
+
+const params = new URLSearchParams(location.search);
+const title = document.getElementById("title"), body = document.getElementById("body");
+const now = new Date().getFullYear();
+
+async function fetchGarage(slug) {
+  if (!slug) throw new Error("This link needs two garage codes.");
+  const res = await fetch(`${API}/public/${encodeURIComponent(slug)}`);
+  if (res.status === 404) throw new Error("One of these garages isn't shared any more.");
+  if (!res.ok) throw new Error("Couldn't load these garages. Try again in a moment.");
+  return res.json();
+}
+
+async function garages(cat) {
+  if (params.has("demo") || !API) {
+    // Preview until the API is live: two sample garages.
+    const pool = cat.cars.filter((c) => c.values.length && c.image);
+    const pick = (start, step, n) => Array.from({ length: n }, (_, i) => pool[(start + i * step) % pool.length]);
+    const items = (cars) => cars.map((c) => ({ car_id: c.id }));
+    return [{ name: "Alex", items: items(pick(3, 37, 11)) }, { name: "Sam", items: items(pick(3, 53, 9)) }];
+  }
+  return Promise.all([fetchGarage(params.get("a")), fetchGarage(params.get("b"))]);
+}
+
+function summary(cat, g) {
+  const cars = g.items.map((i) => cat.byId.get(i.car_id)).filter(Boolean);
+  const value = (y) => cars.reduce((s, c) => s + (valueAt(c, y) || 0), 0);
+  const limited = cars.filter((c) => c.production != null);
+  const owned = new Set(cars.map((c) => c.id));
+  const v5 = value(now - 5), v0 = value(now);
+  return {
+    name: g.name || "Anonymous", cars, owned,
+    value: v0,
+    count: cars.length,
+    hp: cars.reduce((s, c) => s + (c.hp || 0), 0),
+    limited: limited.length,
+    rarest: limited.length ? Math.min(...limited.map((c) => c.production)) : null,
+    oldest: cars.length ? Math.min(...cars.map((c) => c.yearStart)) : null,
+    growth: v5 > 0 ? (v0 - v5) / v5 : null,
+    brands: new Set(cars.map((c) => c.brand.id)).size,
+    sets: cat.sets.filter((s) => s.ids.length && s.ids.every((i) => owned.has(i))).length,
+  };
+}
+
+// label, key, format, +1 when higher wins / -1 when lower wins
+const ROWS = [
+  ["Estimated value", "value", money, 1],
+  ["Cars", "count", fmt, 1],
+  ["Combined horsepower", "hp", (v) => `${fmt(v)} hp`, 1],
+  ["Limited editions", "limited", fmt, 1],
+  ["Rarest car", "rarest", (v) => `${fmt(v)} built`, -1],
+  ["Oldest car", "oldest", String, -1],
+  ["5-year growth", "growth", (v) => `${v >= 0 ? "+" : ""}${Math.round(v * 100)}%`, 1],
+  ["Brands", "brands", fmt, 1],
+  ["Famous sets completed", "sets", fmt, 1],
+];
+
+try {
+  const cat = await loadCatalog();
+  const [a, b] = (await garages(cat)).map((g) => summary(cat, g));
+  document.title = `${a.name} vs ${b.name}`;
+  const wins = [0, 0];
+  const rows = ROWS.map(([label, key, f, dir]) => {
+    const x = a[key], y = b[key];
+    const winner = x == null || y == null || x === y ? (x == null && y != null ? 1 : y == null && x != null ? 0 : -1) : (x > y) === (dir > 0) ? 0 : 1;
+    if (winner >= 0) wins[winner]++;
+    const cell = (v, i) => `<td class="${winner === i ? "win" : ""}">${v == null ? "—" : esc(f(v))}</td>`;
+    return `<tr><th scope="row">${label}</th>${cell(x, 0)}${cell(y, 1)}</tr>`;
+  });
+  const shared = a.cars.filter((c) => b.owned.has(c.id));
+  const leader = wins[0] === wins[1] ? "Dead heat" : `${wins[0] > wins[1] ? a.name : b.name} leads`;
+  title.innerHTML = `${esc(a.name)} <span style="color:var(--ink2)">vs</span><br>${esc(b.name)}`;
+  const crown = (s, other) => {
+    const best = s.cars.filter((c) => !other.owned.has(c.id)).sort((p, q) => (valueAt(q, now) || 0) - (valueAt(p, now) || 0))[0];
+    return best ? cardHTML(best) : `<p class="empty">Nothing ${esc(other.name)} doesn't also own.</p>`;
+  };
+  body.innerHTML = `
+    <div class="stats">
+      <div class="stat accent"><b>${wins[0]} – ${wins[1]}</b><span>${esc(leader)}, categories won</span></div>
+      <div class="stat"><b>${fmt(shared.length)}</b><span>cars in both garages</span></div>
+      <div class="stat"><b>${money(Math.abs(a.value - b.value))}</b><span>value gap</span></div>
+    </div>
+    <table class="compare"><thead><tr><th></th><th><div class="name">${esc(a.name)}</div></th><th><div class="name">${esc(b.name)}</div></th></tr></thead>
+    <tbody>${rows.join("")}</tbody></table>
+    <p class="eyebrow">CROWN JEWEL ONLY ONE OF YOU OWNS</p>
+    <div class="recent"><div><p class="eyebrow" style="margin:0 0 6px">${esc(a.name)}</p>${crown(a, b)}</div><div><p class="eyebrow" style="margin:0 0 6px">${esc(b.name)}</p>${crown(b, a)}</div></div>
+    ${shared.length ? `<p class="eyebrow">YOU BOTH OWN</p><div class="recent">${shared.slice(0, 6).map((c) => cardHTML(c)).join("")}</div>` : ""}`;
+} catch (e) {
+  title.textContent = "Head to head not found";
+  body.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+}
+</script>
+</body>
+</html>

@@ -145,3 +145,5 @@ footer { padding: 40px 0; font-size: 13px; color: var(--ink2); display: flex; fl
 .compare-banner .chip { color: var(--on-inverse); border-color: var(--on-inverse2); }
 .compare-banner[hidden] { display: none; }
 .compare-banner b { white-space: nowrap; }
+.vs-form { margin-top: 28px; padding: 18px; border-radius: 22px; background: var(--card); box-shadow: var(--shadow); }
+.vs-input { flex: 1; min-width: 200px; height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 15px var(--body); }

@@ -71,7 +71,21 @@ try {
     </div>
     ${setsHTML}
     ${cars.length ? `<p class="eyebrow">JUST ADDED</p><div class="recent">${cars.slice(0, 2).map((c) => cardHTML(c, { isNew: newIds.has(c.id) })).join("")}</div>` : `<p class="empty">No cars in this garage yet.</p>`}
-    <div id="browser"></div>`;
+    <div id="browser"></div>
+    <form class="vs-form" id="vs">
+      <p class="eyebrow" style="margin:0">GO HEAD TO HEAD</p>
+      <p style="margin:6px 0 10px">Paste your own garage link to compare the two collections.</p>
+      <div class="row"><input name="mine" class="vs-input" placeholder="jayesh212.github.io/garage/g/?s=…" aria-label="Your garage link" required>
+      <button class="pill btn-accent">Compare</button></div>
+    </form>`;
+  document.getElementById("vs").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = e.target.mine.value.trim();
+    let mine = v;
+    try { mine = new URL(v.startsWith("http") ? v : `https://${v}`).searchParams.get("s") || v; } catch {}
+    const q = params.has("demo") || !slug ? "demo=1" : `a=${encodeURIComponent(mine)}&b=${encodeURIComponent(slug)}`;
+    location.href = `../vs/?${q}`;
+  });
   if (cars.length) {
     // Showroom: full-screen slideshow for a garage TV or a tablet on the wall.
     const btn = document.getElementById("showroomBtn");
