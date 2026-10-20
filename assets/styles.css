@@ -121,6 +121,14 @@ footer { padding: 40px 0; font-size: 13px; color: var(--ink2); display: flex; fl
   background: var(--card); border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow); }
 .pulse .rank { font: 800 22px var(--display); width: 30px; color: var(--ink2); }
 .pulse .who { flex: 1; min-width: 0; }
+.pulse .thumb { width: 72px; height: 40px; object-fit: contain; flex: none; filter: drop-shadow(0 6px 6px rgba(0,0,0,.25)); }
+@media (max-width: 420px) {
+  .pulse button { gap: 8px; padding: 12px 10px; }
+  .pulse .rank { width: 16px; font-size: 18px; }
+  .pulse .thumb { width: 56px; height: 32px; }
+  .pulse .who b { font-size: 13px; overflow-wrap: anywhere; }
+  .pulse .up { font-size: 14px; }
+}
 .pulse .who b { display: block; font: 600 14px/1.2 var(--display); }
 .pulse .who span { font-size: 12px; color: var(--ink2); }
 .pulse .up { font: 800 16px var(--display); background: var(--accent); color: var(--on-accent); border-radius: 12px; padding: 4px 8px; }

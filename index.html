@@ -33,6 +33,7 @@ const nowY = new Date().getFullYear();
 const top = cat.cars.map((c) => [c, growth(c)]).filter(([c, g]) => g != null && valueAt(c, nowY) >= 100000).sort((a, b) => b[1] - a[1]).slice(0, 6);
 const pulse = document.getElementById("pulse");
 pulse.innerHTML = top.map(([c, g], i) => `<button data-id="${c.id}"><span class="rank">${i + 1}</span>
+  ${c.image ? `<img class="thumb" src="${esc(c.image)}" alt="" loading="lazy">` : ""}
   <span class="who"><b>${esc(c.brand.name)} ${esc(c.model)}</b><span>now ~${money(valueAt(c, new Date().getFullYear()))}</span></span>
   <span class="up">+${Math.round(g * 100)}%</span></button>`).join("");
 pulse.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) openDetail(document.getElementById("detail"), cat.byId.get(Number(b.dataset.id))); });
