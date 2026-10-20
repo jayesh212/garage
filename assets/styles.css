@@ -147,3 +147,16 @@ footer { padding: 40px 0; font-size: 13px; color: var(--ink2); display: flex; fl
 .compare-banner b { white-space: nowrap; }
 .vs-form { margin-top: 28px; padding: 18px; border-radius: 22px; background: var(--card); box-shadow: var(--shadow); }
 .vs-input { flex: 1; min-width: 200px; height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 15px var(--body); }
+
+/* Liquid chrome numerals with a lime glint. Darker ramp on light backgrounds so the digits stay readable. */
+:root { --chrome: linear-gradient(180deg, #5d636b 0%, #1d2024 46%, #000 52%, #3b3f45 78%, #7c838c 100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chrome: linear-gradient(180deg, #fff 0%, #9aa0a8 48%, #3b3f45 52%, #9aa0a8 78%, #fff 100%); } }
+:root[data-theme="dark"] { --chrome: linear-gradient(180deg, #fff 0%, #9aa0a8 48%, #3b3f45 52%, #9aa0a8 78%, #fff 100%); }
+.big, .stat:not(.accent) b {
+  background: linear-gradient(115deg, transparent 40%, rgb(198 255 0 / .55) 50%, transparent 60%) -150% 0 / 250% 100% no-repeat, var(--chrome);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: glint 4.5s ease-in-out infinite;
+}
+@keyframes glint { 0%, 30% { background-position: 150% 0, 0 0; } 70%, 100% { background-position: -150% 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .big, .stat:not(.accent) b { animation: none; } }
+@media (forced-colors: active) { .big, .stat:not(.accent) b { background: none; color: CanvasText; } }
