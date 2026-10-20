@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared Garage</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><span class="viewonly" id="by">View only</span><nav><button class="pill" id="showroomBtn" hidden>Showroom</button><a class="logo" href="../">garage/</a></nav></header>
+  <section class="hero">
+    <h1 id="title">Loading garage…</h1>
+  </section>
+  <div id="body"></div>
+  <footer><span>Photos from Wikimedia Commons under their free licences, backgrounds removed. Specs are estimates.</span><a href="../">Browse the full catalog</a></footer>
+</div>
+<dialog id="detail" aria-label="Car details"></dialog>
+<script type="module">
+import { API } from "../assets/config.js";
+import { loadCatalog, fmt, cardHTML, esc, years, silhouette } from "../assets/catalog.js";
+import { mountBrowser, TOOLS } from "../assets/browse.js";
+
+const params = new URLSearchParams(location.search);
+const slug = params.get("s");
+const title = document.getElementById("title"), body = document.getElementById("body");
+
+async function garage() {
+  if (params.has("demo") || !API) {
+    // Preview until the API is live: a sample garage of collectible cars.
+    const cat = await loadCatalog();
+    const picks = cat.cars.filter((c) => c.collectible && c.values.length).slice(0, 14);
+    const now = Date.now();
+    return [cat, { name: "Demo", items: picks.map((c, i) => ({ car_id: c.id, added_at: new Date(now - i * 6e8).toISOString() })) }];
+  }
+  if (!slug) throw new Error("This link is missing its garage code.");
+  const [cat, res] = await Promise.all([loadCatalog(), fetch(`${API}/public/${encodeURIComponent(slug)}`)]);
+  if (res.status === 404) throw new Error("This garage isn't shared any more.");
+  if (!res.ok) throw new Error("Couldn't load this garage. Try again in a moment.");
+  return [cat, await res.json()];
+}
+
+try {
+  const [cat, g] = await garage();
+  const cars = g.items.map((i) => cat.byId.get(i.car_id)).filter(Boolean);
+  const added = new Map(g.items.map((i) => [i.car_id, new Date(i.added_at)]));
+  const monthAgo = Date.now() - 30 * 864e5;
+  const newIds = new Set(cars.filter((c) => added.get(c.id) > monthAgo).map((c) => c.id));
+  const owner = g.name ? `${g.name}’s` : "A";
+  document.title = `${owner} Garage`;
+  document.getElementById("by").textContent = g.name ? `View only · shared by ${g.name}` : "View only";
+  title.innerHTML = `${esc(owner)}<br>Garage`;
+  const hp = cars.reduce((s, c) => s + (c.hp || 0), 0);
+  const limited = cars.filter((c) => c.production != null);
+  const rarest = limited.slice().sort((a, b) => a.production - b.production)[0];
+  const oldest = cars.slice().sort((a, b) => a.yearStart - b.yearStart)[0];
+  const lastAdded = Math.max(0, ...added.values());
+  const owned = new Set(cars.map((c) => c.id));
+  const doneSets = cat.sets.filter((st) => st.ids.length && st.ids.every((i) => owned.has(i)));
+  const setsHTML = doneSets.length ? `<p class="eyebrow">SETS COMPLETED</p><div class="row" style="padding-top:8px">${doneSets.map((st) => `<span class="tag" title="${esc(st.detail || "")}">${esc(st.name)}</span>`).join("")}</div>` : "";
+  body.innerHTML = `
+    <div class="stats">
+      <div class="stat accent"><b>${fmt(cars.length)}</b><span>cars${lastAdded ? ` · updated ${new Date(lastAdded).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</span></div>
+      <div class="stat"><b>${fmt(hp)}</b><span>hp combined</span></div>
+      <div class="stat"><b>${fmt(limited.length)}</b><span>limited editions</span></div>
+      ${rarest ? `<div class="stat"><b>${fmt(rarest.production)}</b><span>rarest: ${esc(rarest.brand.name)} ${esc(rarest.model)}</span></div>` : ""}
+      ${oldest ? `<div class="stat"><b>${oldest.yearStart}</b><span>oldest: ${esc(oldest.brand.name)} ${esc(oldest.model)}</span></div>` : ""}
+    </div>
+    ${setsHTML}
+    ${cars.length ? `<p class="eyebrow">JUST ADDED</p><div class="recent">${cars.slice(0, 2).map((c) => cardHTML(c, { isNew: newIds.has(c.id) })).join("")}</div>` : `<p class="empty">No cars in this garage yet.</p>`}
+    <div id="browser"></div>`;
+  if (cars.length) {
+    // Showroom: full-screen slideshow for a garage TV or a tablet on the wall.
+    const btn = document.getElementById("showroomBtn");
+    btn.hidden = false;
+    let timer;
+    const show = () => {
+      let i = 0;
+      const el = document.createElement("div");
+      el.className = "showroom";
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-label", "Showroom");
+      document.body.append(el);
+      const paint = () => {
+        const c = cars[i % cars.length];
+        el.innerHTML = `<div class="sr-top"><span>${esc(owner)} Garage</span><span>${(i % cars.length) + 1} / ${cars.length} · Esc to exit</span></div>
+          <div class="sr-stage">${c.image ? `<img src="${esc(c.image)}" alt="">` : silhouette()}</div>
+          <div><div class="sr-name">${esc(c.brand.name)} ${esc(c.model)}</div>
+          <div class="sr-meta">${esc(years(c))}${c.production != null ? ` · ${fmt(c.production)} built` : ""}${c.engine ? ` · ${esc(c.engine)}` : ""}</div>
+          ${c.hp ? `<div class="sr-hp">${fmt(c.hp)} hp</div>` : ""}</div>`;
+        i++;
+      };
+      const close = () => { clearInterval(timer); el.remove(); document.removeEventListener("keydown", onKey); document.exitFullscreen?.().catch(() => {}); };
+      const onKey = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") paint(); };
+      el.addEventListener("click", close);
+      document.addEventListener("keydown", onKey);
+      el.requestFullscreen?.().catch(() => {});
+      paint();
+      timer = setInterval(paint, 8000);
+    };
+    btn.addEventListener("click", show);
+    if (params.has("showroom")) show();
+    const root = document.getElementById("browser");
+    root.innerHTML = TOOLS;
+    const dialog = document.getElementById("detail");
+    mountBrowser({ cars, byId: cat.byId, root, dialog, newIds });
+    body.querySelector(".recent").addEventListener("click", (e) => {
+      const card = e.target.closest(".card");
+      if (card) root.querySelector(`.card[data-id="${card.dataset.id}"]`)?.click();
+    });
+  }
+} catch (e) {
+  title.textContent = "Garage not found";
+  body.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+}
+</script>
+</body>
+</html>

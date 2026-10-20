@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garage Catalog</title>
+<meta name="description" content="Luxury, limited-edition and collectible cars, searchable by brand, year and horsepower.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='16' fill='%23c6ff00'/><text x='16' y='22' font-size='16' text-anchor='middle' font-family='sans-serif' font-weight='800'>g</text></svg>">
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top"><a class="logo" href="./">garage/</a><nav><a class="pill" href="support.html">Support</a></nav></header>
+  <section class="hero">
+    <p class="big" id="count">—</p>
+    <div class="hero-sub"><p>luxury, limited and<br>collectible cars</p><span class="tag" id="brands">loading</span></div>
+  </section>
+  <p class="eyebrow">APPRECIATING FASTEST · 5 YEARS</p>
+  <div class="pulse" id="pulse"></div>
+  <div id="browser"></div>
+  <footer><span>Photos from Wikimedia Commons under their free licences, backgrounds removed. Specs and values are estimates.</span><span><a href="privacy.html">Privacy</a> · <a href="support.html">Support</a></span></footer>
+</div>
+<dialog id="detail" aria-label="Car details"></dialog>
+<script type="module">
+import { loadCatalog, fmt, growth, money, valueAt, esc, openDetail } from "./assets/catalog.js";
+import { mountBrowser, TOOLS } from "./assets/browse.js";
+const cat = await loadCatalog();
+document.getElementById("count").textContent = fmt(cat.cars.length);
+document.getElementById("brands").textContent = `${cat.brands.length} brands`;
+const nowY = new Date().getFullYear();
+const top = cat.cars.map((c) => [c, growth(c)]).filter(([c, g]) => g != null && valueAt(c, nowY) >= 100000).sort((a, b) => b[1] - a[1]).slice(0, 6);
+const pulse = document.getElementById("pulse");
+pulse.innerHTML = top.map(([c, g], i) => `<button data-id="${c.id}"><span class="rank">${i + 1}</span>
+  <span class="who"><b>${esc(c.brand.name)} ${esc(c.model)}</b><span>now ~${money(valueAt(c, new Date().getFullYear()))}</span></span>
+  <span class="up">+${Math.round(g * 100)}%</span></button>`).join("");
+pulse.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) openDetail(document.getElementById("detail"), cat.byId.get(Number(b.dataset.id))); });
+const root = document.getElementById("browser");
+root.innerHTML = TOOLS;
+mountBrowser({ cars: cat.cars, byId: cat.byId, root, dialog: document.getElementById("detail") });
+</script>
+</body>
+</html>
