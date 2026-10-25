@@ -116,7 +116,7 @@ footer { padding: 40px 0; font-size: 13px; color: var(--ink2); display: flex; fl
 .viewonly { padding: 6px 12px; border-radius: 14px; background: var(--mist); font-size: 12px; font-weight: 500; }
 .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--ink2); margin: 18px 0 0; }
 
-.pulse { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); padding: 8px 0 16px; }
+.pulse { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); padding: 8px 0 16px; }
 .pulse button { display: flex; align-items: center; gap: 12px; text-align: left; border: 0; font: inherit; color: inherit; cursor: pointer;
   background: var(--card); border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow); }
 .pulse .rank { font: 800 22px var(--display); width: 30px; color: var(--ink2); }
@@ -171,3 +171,42 @@ footer { padding: 40px 0; font-size: 13px; color: var(--ink2); display: flex; fl
 @keyframes glint { 0%, 30% { background-position: 150% 0, 0 0; } 70%, 100% { background-position: -150% 0, 0 0; } }
 @media (prefers-reduced-motion: reduce) { .big, .stat:not(.accent) b { animation: none; } }
 @media (forced-colors: active) { .big, .stat:not(.accent) b { background: none; color: CanvasText; } }
+
+/* Navigation, deep-linked car details and the value chart. */
+.top nav .pill.on { background: var(--inverse); color: var(--on-inverse); border-color: var(--inverse); }
+.top nav .count { background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 700; }
+.top nav .count[hidden] { display: none; }
+@media (max-width: 560px) { .top { flex-wrap: wrap; } .top nav { width: 100%; overflow-x: auto; } .top nav .pill { height: 38px; padding: 0 14px; } }
+.d-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.d-actions .btn { justify-content: center; }
+.d-actions .btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
+.vchart { margin: 0; background: var(--card); border-radius: 18px; padding: 14px; }
+.vchart figcaption { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+.vchart figcaption span { color: var(--ink2); }
+.vchart svg { width: 100%; height: 110px; display: block; }
+.vchart .area { fill: color-mix(in srgb, var(--accent) 35%, transparent); }
+.vchart .line { fill: none; stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.vchart circle { fill: var(--ink); }
+.vchart-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink2); margin-top: 6px; }
+.vchart-axis span:last-child { text-align: right; }
+.vchart-axis span:not(:first-child):not(:last-child) { text-align: center; }
+.group .more { margin-top: 10px; }
+
+/* Market leaderboards */
+.board { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; counter-reset: none; }
+.board button { width: 100%; display: grid; grid-template-columns: 34px 120px 1fr auto; align-items: center; gap: 12px; padding: 10px 16px 10px 12px;
+  background: var(--card); color: var(--ink); border: 0; border-radius: 22px; box-shadow: var(--shadow); text-align: left; cursor: pointer; font: inherit; }
+.board button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.board .pos { font: 800 22px var(--display); color: var(--ink2); text-align: center; }
+.board li:nth-child(-n+3) .pos { color: var(--ink); }
+.board .ph { height: 56px; display: flex; align-items: center; justify-content: center; }
+.board .ph img, .board .ph svg { max-width: 100%; max-height: 56px; object-fit: contain; }
+.board .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.board .who b { font: 600 15px var(--display); }
+.board .who span { font-size: 12px; color: var(--ink2); }
+.board .fig { font: 800 16px var(--display); background: var(--accent); color: var(--on-accent); padding: 6px 12px; border-radius: 14px; white-space: nowrap; }
+@media (max-width: 560px) {
+  .board button { grid-template-columns: 26px 72px 1fr; }
+  .board .fig { grid-column: 3; justify-self: start; font-size: 13px; padding: 4px 10px; }
+  .board .ph { height: 44px; }
+}

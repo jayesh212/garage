@@ -123,14 +123,27 @@ export function renderGroups(el, groups, opts = {}) {
     el.innerHTML = `<p class="empty">No cars match that search.</p>`;
     return;
   }
-  el.innerHTML = groups.map((g) => {
+  // Big result sets show the first cards of each group; "Show all" fills in the rest on demand.
+  const total = groups.reduce((n, g) => n + g.cars.length, 0);
+  const cap = total > 120 ? 8 : Infinity;
+  el.innerHTML = groups.map((g, i) => {
     const hp = g.cars.reduce((s, c) => s + (c.hp || 0), 0);
+    const shown = g.cars.slice(0, cap);
+    const more = g.cars.length - shown.length;
     return `<section class="group"><h2>${esc(g.label)} <span>${g.cars.length} car${g.cars.length === 1 ? "" : "s"} · ${fmt(hp)} hp combined</span></h2>
-      <div class="grid">${g.cars.map((c) => cardHTML(c, { isNew: opts.newIds?.has(c.id) })).join("")}</div></section>`;
+      <div class="grid">${shown.map((c) => cardHTML(c, { isNew: opts.newIds?.has(c.id) })).join("")}</div>
+      ${more > 0 ? `<button class="chip more" data-more="${i}">Show all ${g.cars.length}</button>` : ""}</section>`;
   }).join("");
+  el.onclick = (e) => {
+    const b = e.target.closest("[data-more]");
+    if (!b) return;
+    const g = groups[Number(b.dataset.more)];
+    b.previousElementSibling.insertAdjacentHTML("beforeend", g.cars.slice(cap).map((c) => cardHTML(c, { isNew: opts.newIds?.has(c.id) })).join(""));
+    b.remove();
+  };
 }
 
-export function openDetail(dialog, car, extra = "") {
+export function openDetail(dialog, car, extra = "", opts = {}) {
   const row = (k, v) => (v == null || v === "" ? "" : `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`);
   const now = valueAt(car, new Date().getFullYear());
   dialog.innerHTML = `<div class="d-hero">
@@ -147,11 +160,88 @@ export function openDetail(dialog, car, extra = "") {
       </div>
       <dl class="specs">${row("Engine", car.engine)}${row("Torque", car.torque && `${fmt(car.torque)} Nm`)}${row("Top speed", car.top && `${car.top} km/h`)}${row("Body", car.body && car.body.replace("_", " "))}${row("Built", car.production != null ? `${fmt(car.production)} units` : null)}</dl>
       ${extra}
-      <button class="btn" data-compare="${car.id}" style="justify-content:center">Compare with another car</button>
+      ${valueChart(car)}
+      <div class="d-actions">
+        <button class="btn" data-dream="${car.id}" aria-pressed="${dream.has(car.id)}">${dream.has(car.id) ? "✓ In your dream garage" : "+ Dream garage"}</button>
+        <button class="btn" data-link="${car.id}">Copy link</button>
+      </div>
+      ${opts.compare === false ? "" : `<button class="btn" data-compare="${car.id}" style="justify-content:center">Compare with another car</button>`}
       ${car.image ? `<p class="credit">Photo: ${esc(car.credit)} · ${esc(car.license)} · Wikimedia Commons, background removed</p>` : ""}
     </div>`;
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
+  // Deep link: the address bar always names the open car, so it can be copied or shared.
+  history.replaceState(null, "", `#car-${car.id}`);
+  if (!dialog.dataset.wired) {
+    dialog.dataset.wired = "1";
+    dialog.addEventListener("close", () => { if (location.hash.startsWith("#car-")) history.replaceState(null, "", location.pathname + location.search); });
+    dialog.addEventListener("click", async (e) => {
+      const d = e.target.closest("[data-dream]"), l = e.target.closest("[data-link]");
+      if (d) {
+        const on = dream.toggle(Number(d.dataset.dream));
+        d.setAttribute("aria-pressed", String(on));
+        d.textContent = on ? "✓ In your dream garage" : "+ Dream garage";
+        document.dispatchEvent(new CustomEvent("dream"));
+      }
+      if (l) {
+        const url = `${location.origin}${location.pathname}${location.search}#car-${l.dataset.link}`;
+        try { await navigator.clipboard.writeText(url); l.textContent = "Link copied"; } catch { l.textContent = "Copy from the address bar"; }
+      }
+    });
+  }
 }
+
+/** Opens the car named in the address (#car-123) once the catalog has loaded. */
+export function openFromHash(dialog, byId, opts = {}) {
+  const m = location.hash.match(/^#car-(\d+)$/);
+  const car = m && byId.get(Number(m[1]));
+  if (car) openDetail(dialog, car, "", opts);
+}
+
+/** Estimated value over time as a small inline chart; empty when there's under two points. */
+export function valueChart(car) {
+  const v = car.values;
+  if (!v || v.length < 2) return "";
+  const W = 460, H = 120, pad = 6;
+  const x0 = v[0][0], x1 = v[v.length - 1][0];
+  const lo = Math.min(...v.map((p) => p[1])), hi = Math.max(...v.map((p) => p[1]));
+  const x = (y) => pad + ((y - x0) / Math.max(1, x1 - x0)) * (W - pad * 2);
+  const y = (u) => H - pad - ((u - lo) / Math.max(1, hi - lo)) * (H - pad * 2 - 14);
+  const line = v.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ");
+  const first = v[0][1], last = v[v.length - 1][1];
+  const change = Math.round(((last - first) / first) * 100);
+  return `<figure class="vchart" aria-label="Estimated value from ${x0} to ${x1}: ${money(first)} to ${money(last)}">
+    <figcaption><span>Estimated value</span><b>${change >= 0 ? "+" : ""}${change}% since ${x0}</b></figcaption>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points="${x(x0)},${H} ${line} ${x(x1)},${H}" class="area"/><polyline points="${line}" class="line"/>
+    </svg>
+    <div class="vchart-axis">${v.map((p) => `<span>${p[0]}<br>${money(p[1])}</span>`).join("")}</div>
+  </figure>`;
+}
+
+/** The visitor's dream garage: car ids kept in this browser only. */
+export const dream = (() => {
+  const KEY = "dreamGarage";
+  const read = () => { try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch { return new Set(); } };
+  let ids = read();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...ids])); } catch {} };
+  return {
+    has: (id) => ids.has(id),
+    ids: () => [...ids],
+    toggle(id) { if (ids.has(id)) ids.delete(id); else ids.add(id); save(); return ids.has(id); },
+    replace(list) { ids = new Set(list); save(); },
+  };
+})();
+
+/** Site navigation; `here` is "catalog", "market" or "dream". */
+export function navHTML(here) {
+  const link = (key, path, label) => `<a class="pill${here === key ? " on" : ""}" href="${new URL(path, ROOT).href}"${here === key ? ' aria-current="page"' : ""}>${label}</a>`;
+  const n = dream.ids().length;
+  return link("catalog", "./", "Catalog") + link("market", "market/", "Market") + link("dream", "dream/", `Dream garage${n ? ` <span class="count" data-dream-count>${n}</span>` : ' <span class="count" data-dream-count hidden></span>'}`);
+}
+document.addEventListener("dream", () => {
+  const n = dream.ids().length;
+  document.querySelectorAll("[data-dream-count]").forEach((el) => { el.textContent = n; el.hidden = !n; });
+});
 
 // Change in estimated value over the last `years` years, as a fraction (0.5 = +50%).
 export function growth(car, years = 5) {

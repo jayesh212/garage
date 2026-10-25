@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garage Market</title>
+<meta name="description" content="The most valuable, fastest appreciating, rarest and most powerful collector cars.">
+<meta property="og:title" content="Garage Market">
+<meta property="og:description" content="The most valuable, fastest appreciating, rarest and most powerful collector cars.">
+<meta property="og:image" content="https://jayesh212.github.io/garage/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><a class="logo" href="../">garage/</a><nav id="nav"></nav></header>
+  <section class="hero"><h1>The market</h1><div class="hero-sub"><p>Who leads, by value, growth,<br>rarity and power.</p></div></section>
+  <div class="row" role="tablist" id="tabs"></div>
+  <ol class="board" id="board"></ol>
+  <footer><span>Values are estimates of typical market value, not appraisals or offers.</span><a href="../">Browse the full catalog</a></footer>
+</div>
+<dialog id="detail" aria-label="Car details"></dialog>
+<script type="module">
+import { loadCatalog, fmt, money, valueAt, growth, esc, openDetail, openFromHash, navHTML, years, silhouette } from "../assets/catalog.js";
+document.getElementById("nav").innerHTML = navHTML("market");
+const cat = await loadCatalog();
+const now = new Date().getFullYear();
+const val = (c) => valueAt(c, now);
+const BOARDS = [
+  { key: "value", label: "Most valuable", pick: (c) => val(c), show: (c) => money(val(c)), desc: true },
+  { key: "growth", label: "Rising fastest", pick: (c) => (val(c) >= 100000 ? growth(c) : null), show: (c) => `+${Math.round(growth(c) * 100)}% in 5 yrs`, desc: true },
+  { key: "falling", label: "Cooling off", pick: (c) => (val(c) >= 100000 && growth(c) < 0 ? growth(c) : null), show: (c) => `${Math.round(growth(c) * 100)}% in 5 yrs`, desc: false },
+  { key: "rarest", label: "Rarest", pick: (c) => (c.production > 0 ? c.production : null), show: (c) => `${fmt(c.production)} built`, desc: false },
+  { key: "power", label: "Most powerful", pick: (c) => c.hp, show: (c) => `${fmt(c.hp)} hp`, desc: true },
+  { key: "quickest", label: "Quickest", pick: (c) => c.zero100, show: (c) => `${c.zero100} s to 100`, desc: false },
+];
+const tabs = document.getElementById("tabs"), board = document.getElementById("board"), dialog = document.getElementById("detail");
+tabs.innerHTML = BOARDS.map((b) => `<button class="chip" role="tab" data-key="${b.key}">${b.label}</button>`).join("");
+function show(key) {
+  const b = BOARDS.find((x) => x.key === key) || BOARDS[0];
+  tabs.querySelectorAll("button").forEach((t) => { t.setAttribute("aria-pressed", String(t.dataset.key === b.key)); t.setAttribute("aria-selected", String(t.dataset.key === b.key)); });
+  const list = cat.cars.map((c) => [c, b.pick(c)]).filter(([, v]) => v != null && !Number.isNaN(v))
+    .sort((x, y) => (b.desc ? y[1] - x[1] : x[1] - y[1])).slice(0, 25);
+  board.innerHTML = list.map(([c], i) => `<li><button data-id="${c.id}">
+      <span class="pos">${i + 1}</span>
+      <span class="ph">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : silhouette()}</span>
+      <span class="who"><b>${esc(c.brand.name)} ${esc(c.model)}</b><span>${esc(years(c))}${c.production != null ? ` · ${fmt(c.production)} built` : ""}</span></span>
+      <span class="fig">${esc(b.show(c))}</span></button></li>`).join("");
+  history.replaceState(null, "", `?board=${b.key}${location.hash}`);
+}
+tabs.addEventListener("click", (e) => { const t = e.target.closest("[data-key]"); if (t) show(t.dataset.key); });
+board.addEventListener("click", (e) => { const r = e.target.closest("[data-id]"); if (r) openDetail(dialog, cat.byId.get(Number(r.dataset.id)), "", { compare: false }); });
+dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+show(new URLSearchParams(location.search).get("board"));
+openFromHash(dialog, cat.byId, { compare: false });
+</script>
+</body>
+</html>
